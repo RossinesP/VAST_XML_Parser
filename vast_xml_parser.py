@@ -83,7 +83,27 @@ class MainWindow(QtWidgets.QWidget):
             response = requests.get(URL)
             tree = ET.fromstring(response.content)
             for child in tree.iter('MediaFile'):
-                media_file_dictionary[child.text] = child.attrib
+                media_url = child.text
+                redirect_count = 0
+                file_size = 0
+                while True:
+                    size_resp = requests.head(media_url)
+                    if size_resp.status_code == 302 and redirect_count < 5:
+                        media_url = size_resp.headers.get("location")
+                        redirect_count =+ 1
+                    else:
+                        try:
+                            file_size = int(size_resp.headers.get("content-length", 0))
+                        except TypeError:
+                            pass
+                        break
+                media_file_attribs = child.attrib
+                
+                media_file_attribs["weight_B"] = str(file_size)
+                media_file_attribs["weight_kB"] = f"{file_size / 1024:.1f}"
+
+                media_file_dictionary[child.text] = media_file_attribs
+
             for child in tree.iter('Creative'):
                 creative_ad_id = child.attrib
         except requests.exceptions.RequestException:
